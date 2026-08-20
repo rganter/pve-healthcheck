@@ -8,7 +8,8 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 - nicht-interaktive Auswahl über `--all` und `--check NAME`
 - Backup-Zusammenfassung für abgeschlossene `vzdump`-Tasks
 - detaillierte Backup-Prüfung mit Task-Logs fehlgeschlagener Backups
-- paginierte, versionskompatible Abfrage der Proxmox-Task-Historie
+- paginierte, versionskompatible Abfrage der Task-Historie je Cluster-Node
+- lokale Filterung nach Zeitraum und `vzdump` für ältere PVE-Versionen
 - Ausgabe des tatsächlichen Proxmox-Fehlers, falls die Task-Abfrage scheitert
 
 ## 0.1.0 – 2026-08-20

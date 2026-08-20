@@ -335,49 +335,81 @@ section "Backups"
 backup_since_epoch=$(date -d "${LOOKBACK_HOURS} hours ago" +%s)
 backup_rows=""
 backup_error=""
-backup_page_start=0
 backup_page_limit=500
 
-while :; do
-    if ! backup_page_json=$(pvesh get /cluster/tasks --typefilter vzdump \
-        --since "$backup_since_epoch" --start "$backup_page_start" \
-        --limit "$backup_page_limit" --output-format json 2>&1); then
-        backup_error=$backup_page_json
-        break
-    fi
-
-    backup_page_count=$(perl -MJSON::PP -0777 -e '
-        my $tasks = eval { decode_json(<STDIN>) };
-        exit 1 if $@ || ref($tasks) ne "ARRAY";
-        print scalar(@$tasks);
-    ' <<<"$backup_page_json" 2>/dev/null || true)
-
-    backup_page_rows=$(perl -MJSON::PP -0777 -e '
-        my $tasks = eval { decode_json(<STDIN>) };
-        exit 1 if $@ || ref($tasks) ne "ARRAY";
-        for my $task (@$tasks) {
-            next if !defined($task->{endtime}) || !defined($task->{status});
-            my @values = map { defined($_) ? $_ : "" }
-                @{$task}{qw(status node id user starttime upid)};
-            s/[|\r\n]/ /g for @values;
-            print join("|", @values), "\n";
+if ! backup_nodes_json=$(pvesh get /nodes --output-format json 2>&1); then
+    backup_error=$backup_nodes_json
+    backup_nodes=""
+else
+    backup_nodes=$(perl -MJSON::PP -0777 -e '
+        my $nodes = eval { decode_json(<STDIN>) };
+        exit 1 if $@ || ref($nodes) ne "ARRAY";
+        for my $node (@$nodes) {
+            print(($node->{node} // ""), "\n");
         }
-    ' <<<"$backup_page_json" 2>/dev/null || true)
+    ' <<<"$backup_nodes_json" 2>/dev/null || true)
+    [[ -n $backup_nodes ]] || backup_error="Proxmox returned no readable node list"
+fi
 
-    if [[ ! $backup_page_count =~ ^[0-9]+$ ]]; then
-        backup_error="Proxmox returned an unreadable task list"
-        break
-    fi
-    [[ -n $backup_page_rows ]] && backup_rows+="${backup_page_rows}"$'\n'
-    ((backup_page_count < backup_page_limit)) && break
-    backup_page_start=$((backup_page_start + backup_page_limit))
-done
+while IFS= read -r backup_node; do
+    [[ -n $backup_node ]] || continue
+    backup_page_start=0
+
+    while :; do
+        if ! backup_page_json=$(pvesh get "/nodes/$backup_node/tasks" \
+            --start "$backup_page_start" --limit "$backup_page_limit" \
+            --output-format json 2>&1); then
+            backup_error+="${backup_error:+; }node $backup_node: $backup_page_json"
+            break
+        fi
+
+        backup_page_count=$(perl -MJSON::PP -0777 -e '
+            my $tasks = eval { decode_json(<STDIN>) };
+            exit 1 if $@ || ref($tasks) ne "ARRAY";
+            print scalar(@$tasks);
+        ' <<<"$backup_page_json" 2>/dev/null || true)
+
+        backup_page_oldest=$(perl -MJSON::PP -0777 -e '
+            my $tasks = eval { decode_json(<STDIN>) };
+            exit 1 if $@ || ref($tasks) ne "ARRAY";
+            my @times = map { defined($_->{starttime}) ? $_->{starttime} : () } @$tasks;
+            @times = sort { $a <=> $b } @times;
+            print($times[0] // 0);
+        ' <<<"$backup_page_json" 2>/dev/null || true)
+
+        backup_page_rows=$(perl -MJSON::PP -0777 -e '
+            my $since = shift;
+            my $tasks = eval { decode_json(<STDIN>) };
+            exit 1 if $@ || ref($tasks) ne "ARRAY";
+            for my $task (@$tasks) {
+                next if ($task->{type} // "") ne "vzdump";
+                next if ($task->{starttime} // 0) < $since;
+                next if !defined($task->{endtime}) || !defined($task->{status});
+                my @values = map { defined($_) ? $_ : "" }
+                    @{$task}{qw(status node id user starttime upid)};
+                s/[|\r\n]/ /g for @values;
+                print join("|", @values), "\n";
+            }
+        ' "$backup_since_epoch" <<<"$backup_page_json" 2>/dev/null || true)
+
+        if [[ ! $backup_page_count =~ ^[0-9]+$ ]]; then
+            backup_error+="${backup_error:+; }node $backup_node returned an unreadable task list"
+            break
+        fi
+        [[ -n $backup_page_rows ]] && backup_rows+="${backup_page_rows}"$'\n'
+        [[ $backup_page_oldest =~ ^[0-9]+$ ]] && \
+            ((backup_page_oldest < backup_since_epoch)) && break
+        ((backup_page_count < backup_page_limit)) && break
+        backup_page_start=$((backup_page_start + backup_page_limit))
+    done
+done <<<"$backup_nodes"
 
 backup_rows=${backup_rows%$'\n'}
 
-if [[ -n $backup_error ]]; then
+if [[ -n $backup_error && -z $backup_rows ]]; then
     warn "Unable to retrieve backup task history: $backup_error"
 else
+    [[ -n $backup_error ]] && warn "Backup task history is incomplete: $backup_error"
 
     backup_total=0
     backup_ok=0
