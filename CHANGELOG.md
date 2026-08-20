@@ -11,6 +11,8 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 - paginierte, versionskompatible Abfrage der Task-Historie je Cluster-Node
 - lokale Filterung nach Zeitraum und `vzdump` für ältere PVE-Versionen
 - Ausgabe des tatsächlichen Proxmox-Fehlers, falls die Task-Abfrage scheitert
+- vollständige Logs fehlgeschlagener Backups über `pvenode task log`
+- eindeutige Kennzeichnung nicht erfolgreicher Task-Status als `FAILED`
 
 ## 0.1.0 – 2026-08-20
 

@@ -441,8 +441,10 @@ else
         while IFS='|' read -r status node guest user starttime upid; do
             [[ -n $upid ]] || continue
             started=$(date -d "@$starttime" --iso-8601=seconds 2>/dev/null || printf '%s' "$starttime")
-            printf '  %-12s node=%-15s guest=%-8s started=%s user=%s\n' \
-                "$status" "$node" "${guest:--}" "$started" "${user:--}"
+            display_status=$status
+            [[ $status != OK ]] && display_status="FAILED ($status)"
+            printf '  %-28s node=%-15s guest=%-8s started=%s user=%s\n' \
+                "$display_status" "$node" "${guest:--}" "$started" "${user:--}"
         done <<<"$backup_rows"
 
         if ((backup_failed > 0)); then
@@ -450,18 +452,12 @@ else
             while IFS='|' read -r status node guest user starttime upid; do
                 [[ -n $upid && $status != OK ]] || continue
                 printf '\n--- node=%s guest=%s status=%s ---\n' "$node" "${guest:--}" "$status"
-                task_log_json=$(pvesh get "/nodes/$node/tasks/$upid/log" \
-                    --output-format json 2>/dev/null || true)
-                if [[ -n $task_log_json ]]; then
-                    perl -MJSON::PP -0777 -e '
-                        my $lines = eval { decode_json(<STDIN>) };
-                        exit 1 if $@ || ref($lines) ne "ARRAY";
-                        for my $line (@$lines) {
-                            print(($line->{t} // ""), "\n");
-                        }
-                    ' <<<"$task_log_json" 2>/dev/null || warn "Unable to parse task log: $upid"
+                if have pvenode; then
+                    if ! pvenode task log "$upid" 2>&1; then
+                        warn "Unable to retrieve complete task log: $upid"
+                    fi
                 else
-                    warn "Unable to retrieve task log: $upid"
+                    warn "pvenode is not installed; unable to retrieve complete task log: $upid"
                 fi
             done <<<"$backup_rows"
         fi
