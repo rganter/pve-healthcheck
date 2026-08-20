@@ -4,6 +4,8 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 
 ## Unreleased
 
+- übersichtlicheres, farbiges Terminal-Menü mit gruppierten Prüfungen
+- erneute Menüabfrage bei ungültiger Auswahl
 - interaktives Menü für vollständige und einzelne Healthchecks
 - nicht-interaktive Auswahl über `--all` und `--check NAME`
 - Backup-Zusammenfassung für abgeschlossene `vzdump`-Tasks

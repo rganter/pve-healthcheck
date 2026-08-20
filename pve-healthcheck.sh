@@ -54,6 +54,15 @@ while (($#)); do
     esac
 done
 
+if ((USE_COLOR)) && [[ -t 1 ]]; then
+    C_RED=$'\033[31m'; C_YELLOW=$'\033[33m'; C_GREEN=$'\033[32m'
+    C_BLUE=$'\033[34m'; C_CYAN=$'\033[36m'; C_DIM=$'\033[2m'
+    C_BOLD=$'\033[1m'; C_RESET=$'\033[0m'
+else
+    C_RED=''; C_YELLOW=''; C_GREEN=''; C_BLUE=''; C_CYAN=''; C_DIM=''
+    C_BOLD=''; C_RESET=''
+fi
+
 valid_check() {
     local wanted=$1 check
     for check in "${CHECKS[@]}"; do
@@ -64,37 +73,44 @@ valid_check() {
 
 show_menu() {
     local choice
-    printf '\nPVE Healthcheck\n\n'
-    printf '  1) Complete health check\n'
-    printf '  2) Host information\n'
-    printf '  3) Failed systemd services\n'
-    printf '  4) Cluster and quorum\n'
-    printf '  5) High availability\n'
-    printf '  6) Memory and swap\n'
-    printf '  7) ZFS ARC\n'
-    printf '  8) ZFS pools\n'
-    printf '  9) Proxmox storages\n'
-    printf ' 10) iSCSI\n'
-    printf ' 11) Backup details and error logs\n'
-    printf ' 12) Recent critical log patterns\n'
-    printf '  0) Exit\n\n'
-    read -r -p 'Selection: ' choice
-    case $choice in
-        1) CHECK_MODE=all ;;
-        2) CHECK_MODE=host ;;
-        3) CHECK_MODE=services ;;
-        4) CHECK_MODE=cluster ;;
-        5) CHECK_MODE=ha ;;
-        6) CHECK_MODE=memory ;;
-        7) CHECK_MODE=arc ;;
-        8) CHECK_MODE=zfs ;;
-        9) CHECK_MODE=storage ;;
-        10) CHECK_MODE=iscsi ;;
-        11) CHECK_MODE=backups ;;
-        12) CHECK_MODE=logs ;;
-        0) exit 0 ;;
-        *) echo "Invalid selection: $choice" >&2; exit 2 ;;
-    esac
+    while :; do
+        printf '\n%s%s+----------------------------------------------------------+%s\n' "$C_BOLD" "$C_BLUE" "$C_RESET"
+        printf '%s%s|                    PVE HEALTHCHECK                       |%s\n' "$C_BOLD" "$C_BLUE" "$C_RESET"
+        printf '%s%s+----------------------------------------------------------+%s\n' "$C_BOLD" "$C_BLUE" "$C_RESET"
+        printf '  %sRead-only diagnostics for Proxmox VE%s\n' "$C_DIM" "$C_RESET"
+        printf '  Analysis period: %s%s hour(s)%s\n\n' "$C_CYAN" "$LOOKBACK_HOURS" "$C_RESET"
+
+        printf '  %s%sFULL CHECK%s\n' "$C_BOLD" "$C_GREEN" "$C_RESET"
+        printf '  %s[ 1]%s  Complete health check\n\n' "$C_GREEN" "$C_RESET"
+
+        printf '  %s%sINDIVIDUAL CHECKS%s\n' "$C_BOLD" "$C_CYAN" "$C_RESET"
+        printf '  %s[ 2]%s  %-25s %s[ 8]%s  %s\n' "$C_CYAN" "$C_RESET" 'Host information' "$C_CYAN" "$C_RESET" 'ZFS pools'
+        printf '  %s[ 3]%s  %-25s %s[ 9]%s  %s\n' "$C_CYAN" "$C_RESET" 'Failed systemd services' "$C_CYAN" "$C_RESET" 'Proxmox storages'
+        printf '  %s[ 4]%s  %-25s %s[10]%s  %s\n' "$C_CYAN" "$C_RESET" 'Cluster and quorum' "$C_CYAN" "$C_RESET" 'iSCSI'
+        printf '  %s[ 5]%s  %-25s %s[11]%s  %s\n' "$C_CYAN" "$C_RESET" 'High availability' "$C_YELLOW" "$C_RESET" 'Backup details and error logs'
+        printf '  %s[ 6]%s  %-25s %s[12]%s  %s\n' "$C_CYAN" "$C_RESET" 'Memory and swap' "$C_CYAN" "$C_RESET" 'Recent critical log patterns'
+        printf '  %s[ 7]%s  %s\n\n' "$C_CYAN" "$C_RESET" 'ZFS ARC'
+
+        printf '  %s[ 0]%s  Exit\n\n' "$C_DIM" "$C_RESET"
+        printf '  %sSelection:%s ' "$C_BOLD" "$C_RESET"
+        read -r choice
+        case $choice in
+            1) CHECK_MODE=all; break ;;
+            2) CHECK_MODE=host; break ;;
+            3) CHECK_MODE=services; break ;;
+            4) CHECK_MODE=cluster; break ;;
+            5) CHECK_MODE=ha; break ;;
+            6) CHECK_MODE=memory; break ;;
+            7) CHECK_MODE=arc; break ;;
+            8) CHECK_MODE=zfs; break ;;
+            9) CHECK_MODE=storage; break ;;
+            10) CHECK_MODE=iscsi; break ;;
+            11) CHECK_MODE=backups; break ;;
+            12) CHECK_MODE=logs; break ;;
+            0) exit 0 ;;
+            *) printf '\n  %sInvalid selection: %s. Please choose 0-12.%s\n' "$C_RED" "$choice" "$C_RESET" ;;
+        esac
+    done
 }
 
 if [[ -z $CHECK_MODE ]]; then
@@ -108,13 +124,6 @@ if [[ $CHECK_MODE != all ]] && ! valid_check "$CHECK_MODE"; then
 fi
 
 should_run() { [[ $CHECK_MODE == all || $CHECK_MODE == "$1" ]]; }
-
-if ((USE_COLOR)) && [[ -t 1 ]]; then
-    C_RED=$'\033[31m'; C_YELLOW=$'\033[33m'; C_GREEN=$'\033[32m'
-    C_BLUE=$'\033[34m'; C_BOLD=$'\033[1m'; C_RESET=$'\033[0m'
-else
-    C_RED=''; C_YELLOW=''; C_GREEN=''; C_BLUE=''; C_BOLD=''; C_RESET=''
-fi
 
 section() { printf '\n%s%s== %s ==%s\n' "$C_BOLD" "$C_BLUE" "$1" "$C_RESET"; }
 ok()      { printf '%s[OK]%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
