@@ -10,7 +10,7 @@ WARNINGS=0
 CRITICALS=0
 CHECK_MODE=""
 
-CHECKS=(host services cluster ha memory arc zfs storage iscsi backups logs)
+CHECKS=(host services cluster ha memory arc zfs storage iscsi backups reboots logs)
 
 usage() {
     cat <<'EOF'
@@ -22,12 +22,13 @@ Performs read-only checks for:
   - ZFS pool and Proxmox storage status
   - active and stale iSCSI records
   - completed and failed vzdump backup tasks
+  - reboots and possible causes from the previous boot journal
   - recent OOM, watchdog, kernel stall and i915 messages
 
 Exit codes: 0 healthy, 1 warnings, 2 critical findings.
 
 Checks: host, services, cluster, ha, memory, arc, zfs, storage, iscsi,
-        backups, logs
+        backups, reboots, logs
 
 With an interactive terminal and no mode option, a menu is displayed.
 Without an interactive terminal, the complete health check is run.
@@ -88,8 +89,8 @@ show_menu() {
         printf '  %s[ 3]%s  %-25s %s[ 9]%s  %s\n' "$C_CYAN" "$C_RESET" 'Failed systemd services' "$C_CYAN" "$C_RESET" 'Proxmox storages'
         printf '  %s[ 4]%s  %-25s %s[10]%s  %s\n' "$C_CYAN" "$C_RESET" 'Cluster and quorum' "$C_CYAN" "$C_RESET" 'iSCSI'
         printf '  %s[ 5]%s  %-25s %s[11]%s  %s\n' "$C_CYAN" "$C_RESET" 'High availability' "$C_YELLOW" "$C_RESET" 'Backup details and error logs'
-        printf '  %s[ 6]%s  %-25s %s[12]%s  %s\n' "$C_CYAN" "$C_RESET" 'Memory and swap' "$C_CYAN" "$C_RESET" 'Recent critical log patterns'
-        printf '  %s[ 7]%s  %s\n\n' "$C_CYAN" "$C_RESET" 'ZFS ARC'
+        printf '  %s[ 6]%s  %-25s %s[12]%s  %s\n' "$C_CYAN" "$C_RESET" 'Memory and swap' "$C_YELLOW" "$C_RESET" 'Reboots and possible causes'
+        printf '  %s[ 7]%s  %-25s %s[13]%s  %s\n\n' "$C_CYAN" "$C_RESET" 'ZFS ARC' "$C_CYAN" "$C_RESET" 'Recent critical log patterns'
 
         printf '  %s[ 0]%s  Exit\n\n' "$C_DIM" "$C_RESET"
         printf '  %sSelection:%s ' "$C_BOLD" "$C_RESET"
@@ -106,9 +107,10 @@ show_menu() {
             9) CHECK_MODE=storage; break ;;
             10) CHECK_MODE=iscsi; break ;;
             11) CHECK_MODE=backups; break ;;
-            12) CHECK_MODE=logs; break ;;
+            12) CHECK_MODE=reboots; break ;;
+            13) CHECK_MODE=logs; break ;;
             0) exit 0 ;;
-            *) printf '\n  %sInvalid selection: %s. Please choose 0-12.%s\n' "$C_RED" "$choice" "$C_RESET" ;;
+            *) printf '\n  %sInvalid selection: %s. Please choose 0-13.%s\n' "$C_RED" "$choice" "$C_RESET" ;;
         esac
     done
 }
@@ -471,6 +473,84 @@ else
             done <<<"$backup_rows"
         fi
     fi
+fi
+fi
+
+if should_run reboots; then
+section "Reboots and possible causes"
+lookback_start_epoch=$(date -d "$LOG_PERIOD_START" +%s)
+reboot_count=0
+
+boot_start_epoch() {
+    local boot_index=$1 first_entry
+    first_entry=$(journalctl -b "$boot_index" -o json --no-pager 2>/dev/null | sed -n '1p' || true)
+    [[ -n $first_entry ]] || return 1
+    perl -MJSON::PP -e '
+        my $entry = eval { decode_json(<STDIN>) };
+        exit 1 if $@ || !defined($entry->{__REALTIME_TIMESTAMP});
+        print int($entry->{__REALTIME_TIMESTAMP} / 1000000);
+    ' <<<"$first_entry" 2>/dev/null
+}
+
+for ((boot_index=0; boot_index>=-20; boot_index--)); do
+    current_boot_start=$(boot_start_epoch "$boot_index" || true)
+    [[ $current_boot_start =~ ^[0-9]+$ ]] || break
+    ((current_boot_start >= lookback_start_epoch)) || break
+
+    reboot_count=$((reboot_count + 1))
+    previous_boot_index=$((boot_index - 1))
+    reboot_time=$(date -d "@$current_boot_start" --iso-8601=seconds 2>/dev/null || printf '%s' "$current_boot_start")
+    previous_boot_log=$(journalctl -b "$previous_boot_index" -n 500 --no-pager -o short-iso 2>/dev/null || true)
+
+    printf '\nReboot at: %s\n' "$reboot_time"
+    if [[ -z $previous_boot_log ]]; then
+        warn "Previous boot journal is unavailable; reboot cause cannot be determined"
+        continue
+    fi
+
+    reboot_reason=""
+    reboot_pattern=""
+    if grep -Eqi 'kernel panic|panic - not syncing' <<<"$previous_boot_log"; then
+        reboot_reason="Kernel panic detected before reboot"
+        reboot_pattern='kernel panic|panic - not syncing'
+    elif grep -Eqi 'watchdog.*(timeout|reset|lockup)|soft lockup|hard lockup' <<<"$previous_boot_log"; then
+        reboot_reason="Watchdog timeout or kernel lockup detected before reboot"
+        reboot_pattern='watchdog.*(timeout|reset|lockup)|soft lockup|hard lockup'
+    elif grep -Eqi 'out of memory|oom-killer|killed process' <<<"$previous_boot_log"; then
+        reboot_reason="Out-of-memory event detected before reboot"
+        reboot_pattern='out of memory|oom-killer|killed process'
+    elif grep -Eqi 'critical temperature|temperature above threshold|thermal.*shutdown' <<<"$previous_boot_log"; then
+        reboot_reason="Critical temperature or thermal shutdown detected before reboot"
+        reboot_pattern='critical temperature|temperature above threshold|thermal.*shutdown'
+    elif grep -Eqi 'I/O error|blk_update_request|Buffer I/O error|EXT4-fs error|ZFS.*(FAULTED|SUSPENDED)' <<<"$previous_boot_log"; then
+        reboot_reason="Storage or I/O errors detected before reboot"
+        reboot_pattern='I/O error|blk_update_request|Buffer I/O error|EXT4-fs error|ZFS.*(FAULTED|SUSPENDED)'
+    elif grep -Eqi 'systemd-shutdown|reboot: Restarting system|Reached target.*(Reboot|Shutdown)|Shutting down' <<<"$previous_boot_log"; then
+        reboot_reason="Clean shutdown or planned reboot recorded"
+        reboot_pattern='systemd-shutdown|reboot: Restarting system|Reached target.*(Reboot|Shutdown)|Shutting down'
+    fi
+
+    if [[ $reboot_reason == "Clean shutdown or planned reboot recorded" ]]; then
+        ok "$reboot_reason"
+    elif [[ -n $reboot_reason ]]; then
+        warn "$reboot_reason"
+    else
+        warn "No orderly shutdown or clear cause found; possible crash, reset, or power loss"
+    fi
+
+    if [[ -n $reboot_pattern ]]; then
+        info "Relevant journal entries from the previous boot:"
+        grep -Ei "$reboot_pattern" <<<"$previous_boot_log" | tail -n 5 | sed 's/^/  /'
+    else
+        info "Last journal entries from the previous boot:"
+        tail -n 5 <<<"$previous_boot_log" | sed 's/^/  /'
+    fi
+done
+
+if ((reboot_count == 0)); then
+    ok "No reboot detected in the last ${LOOKBACK_HOURS} hour(s)"
+else
+    info "Detected $reboot_count reboot(s) in the last ${LOOKBACK_HOURS} hour(s)"
 fi
 fi
 

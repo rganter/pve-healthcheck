@@ -15,6 +15,7 @@ Ein rein lesendes Healthcheck-Skript für Proxmox-VE-Hosts. Es prüft typische F
 - Status aller Proxmox-Storages
 - aktive und veraltete iSCSI-Einträge
 - abgeschlossene und fehlgeschlagene `vzdump`-Backup-Tasks
+- Neustarts und mögliche Ursachen aus dem Journal des vorherigen Boots
 - OOM-, i915-, Watchdog-, Kernel-Stall-, I/O- und Corosync-Meldungen
 
 ## Installation

@@ -4,6 +4,8 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 
 ## Unreleased
 
+- Erkennung von Reboots im gewählten Prüfzeitraum
+- Ursachenanalyse anhand des vorherigen Boot-Journals mit Belegzeilen
 - übersichtlicheres, farbiges Terminal-Menü mit gruppierten Prüfungen
 - erneute Menüabfrage bei ungültiger Auswahl
 - interaktives Menü für vollständige und einzelne Healthchecks
