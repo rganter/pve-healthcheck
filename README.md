@@ -14,6 +14,7 @@ Ein rein lesendes Healthcheck-Skript für Proxmox-VE-Hosts. Es prüft typische F
 - Zustand aller importierten ZFS-Pools
 - Status aller Proxmox-Storages
 - aktive und veraltete iSCSI-Einträge
+- abgeschlossene und fehlgeschlagene `vzdump`-Backup-Tasks
 - OOM-, i915-, Watchdog-, Kernel-Stall-, I/O- und Corosync-Meldungen
 
 ## Installation
@@ -38,6 +39,19 @@ Als `root` auf dem zu prüfenden PVE-Host:
 ```bash
 ./pve-healthcheck.sh
 ```
+
+Bei interaktiver Ausführung erscheint ein Menü. Dort kann entweder der
+vollständige Healthcheck oder eine einzelne Prüfung ausgewählt werden. Für
+Automatisierungen stehen dieselben Modi ohne Menü zur Verfügung:
+
+```bash
+./pve-healthcheck.sh --all
+./pve-healthcheck.sh --check backups
+./pve-healthcheck.sh --check storage
+```
+
+Wenn die Ein- oder Ausgabe nicht mit einem Terminal verbunden ist, führt das
+Skript ohne weitere Rückfrage automatisch den vollständigen Healthcheck aus.
 
 Standardmäßig werden für die Journalanalyse die letzten 24 Stunden betrachtet. Der Zeitraum lässt sich eingrenzen:
 
@@ -68,6 +82,16 @@ Hilfe anzeigen:
 | `2` | kritische Befunde oder ungültiger Aufruf |
 
 Die Exit-Codes können von Monitoring-Systemen oder Automatisierungen ausgewertet werden.
+
+## Backup-Prüfung
+
+Der vollständige Healthcheck zeigt für den gewählten Zeitraum die Anzahl aller
+abgeschlossenen `vzdump`-Tasks sowie die Zahl der erfolgreichen und
+fehlgeschlagenen Tasks. Der Menüpunkt **Backup details and error logs**
+beziehungsweise `--check backups` listet zusätzlich die einzelnen Tasks auf
+und gibt für fehlgeschlagene Backups das zugehörige Proxmox-Task-Log aus.
+
+Der Zeitraum wird auch hier mit `--hours` festgelegt. Standard sind 24 Stunden.
 
 ## Sicherheit
 
