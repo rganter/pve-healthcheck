@@ -333,13 +333,26 @@ fi
 if should_run backups; then
 section "Backups"
 backup_since_epoch=$(date -d "${LOOKBACK_HOURS} hours ago" +%s)
-backup_json=$(pvesh get /cluster/tasks --typefilter vzdump --since "$backup_since_epoch" \
-    --limit 50000 --output-format json 2>/dev/null || true)
+backup_rows=""
+backup_error=""
+backup_page_start=0
+backup_page_limit=500
 
-if [[ -z $backup_json ]]; then
-    warn "Unable to retrieve backup task history"
-else
-    backup_rows=$(perl -MJSON::PP -0777 -e '
+while :; do
+    if ! backup_page_json=$(pvesh get /cluster/tasks --typefilter vzdump \
+        --since "$backup_since_epoch" --start "$backup_page_start" \
+        --limit "$backup_page_limit" --output-format json 2>&1); then
+        backup_error=$backup_page_json
+        break
+    fi
+
+    backup_page_count=$(perl -MJSON::PP -0777 -e '
+        my $tasks = eval { decode_json(<STDIN>) };
+        exit 1 if $@ || ref($tasks) ne "ARRAY";
+        print scalar(@$tasks);
+    ' <<<"$backup_page_json" 2>/dev/null || true)
+
+    backup_page_rows=$(perl -MJSON::PP -0777 -e '
         my $tasks = eval { decode_json(<STDIN>) };
         exit 1 if $@ || ref($tasks) ne "ARRAY";
         for my $task (@$tasks) {
@@ -349,7 +362,22 @@ else
             s/[|\r\n]/ /g for @values;
             print join("|", @values), "\n";
         }
-    ' <<<"$backup_json" 2>/dev/null || true)
+    ' <<<"$backup_page_json" 2>/dev/null || true)
+
+    if [[ ! $backup_page_count =~ ^[0-9]+$ ]]; then
+        backup_error="Proxmox returned an unreadable task list"
+        break
+    fi
+    [[ -n $backup_page_rows ]] && backup_rows+="${backup_page_rows}"$'\n'
+    ((backup_page_count < backup_page_limit)) && break
+    backup_page_start=$((backup_page_start + backup_page_limit))
+done
+
+backup_rows=${backup_rows%$'\n'}
+
+if [[ -n $backup_error ]]; then
+    warn "Unable to retrieve backup task history: $backup_error"
+else
 
     backup_total=0
     backup_ok=0
