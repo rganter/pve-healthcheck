@@ -149,14 +149,6 @@ Ein `unclean journal` zusammen mit einer fehlenden PID-1-/Kernel-Shutdown-Sequen
 spricht für Crash, Watchdog-Reset oder Stromverlust. `shutdown.target` aus einer
 Benutzer-Systemd-Instanz ist dagegen kein Host-Shutdown.
 
-### Backup-Anzahl und Retention
-
-Die Backup-Ansicht eines Gasts zeigt nur noch vorhandene, abgeschlossene Archive.
-Ein Zeitplan mit vier Läufen pro Tag und `keep-daily=14` behält langfristig nur
-einen Stand pro Kalendertag. Fehlgeschlagene Läufe erzeugen kein vollständiges
-Archiv. Für die tatsächliche Zahl der Ausführungen ist deshalb die Task-Historie
-maßgeblich, nicht allein die Liste der Backup-Dateien.
-
 ### I/O-Pressure
 
 Die Storage-Prüfung liest Linux PSI aus `/proc/pressure/io`. `full` bedeutet,
