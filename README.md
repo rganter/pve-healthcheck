@@ -154,6 +154,20 @@ Ein `unclean journal` zusammen mit einer fehlenden PID-1-/Kernel-Shutdown-Sequen
 spricht für Crash, Watchdog-Reset oder Stromverlust. `shutdown.target` aus einer
 Benutzer-Systemd-Instanz ist dagegen kein Host-Shutdown.
 
+### Proxmox-HA-Watchdog und Self-Fencing
+
+Meldungen von `watchdog-mux`, nach denen ein Client-Watchdog zunächst
+`about to expire` und anschließend `expired` ist, zeigen ein Proxmox-HA-
+Self-Fencing. `watchdog-mux` beendet dann absichtlich die Watchdog-Updates,
+damit der Node zur Vermeidung doppelt aktiver HA-Ressourcen zurückgesetzt wird.
+`watchdog0: watchdog did not stop!` bestätigt den noch aktiven Watchdog, ist aber
+nicht die technische Grundursache.
+
+Die Warnung beweist somit den Resetmechanismus, nicht den Auslöser für den
+ausgebliebenen Heartbeat. Zur Ursachenanalyse sind die unmittelbar vorherigen
+HA-, Corosync-, Netzwerk-, Storage- und Kernelmeldungen relevant. Ein zeitgleich
+laufender Backupjob kann einen vorhandenen Stall unter Last sichtbar machen.
+
 ### I/O-Pressure
 
 Die Storage-Prüfung liest Linux PSI aus `/proc/pressure/io`. `full` bedeutet,

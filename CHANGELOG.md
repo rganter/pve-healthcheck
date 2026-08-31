@@ -4,6 +4,10 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 
 ## Unreleased
 
+- Erkennung abgelaufener `watchdog-mux`-Clients als Proxmox-HA-Self-Fencing
+  einschließlich der relevanten Belegzeilen vor dem Reboot
+- robuste Auswertung der `pvesm status`-Tabelle auch bei vorangestellten
+  Storage-Fehlermeldungen
 - kombinierte RAM-Bewertung aus verfügbarem Speicher, Memory-PSI und aktueller
   Swap-I/O statt einer alleinigen Warnschwelle von 20 Prozent
 - Boot-Startabfrage beendet den JSON-Journalstrom nach dem ersten Eintrag, statt

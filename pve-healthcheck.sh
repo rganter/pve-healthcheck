@@ -344,7 +344,10 @@ if have pvesm; then
     while read -r name status; do
         [[ -z $name ]] && continue
         [[ $status == active ]] || crit "Storage $name is $status"
-    done < <(printf '%s\n' "$storage_output" | awk 'NR>1 {print $1, $3}')
+    done < <(printf '%s\n' "$storage_output" | awk '
+        $1 == "Name" && $2 == "Type" && $3 == "Status" { in_table=1; next }
+        in_table && NF >= 3 { print $1, $3 }
+    ')
 fi
 if [[ -r /proc/pressure/io ]]; then
     io_full_avg10=$(awk '/^full / {for (i=1; i<=NF; i++) if ($i ~ /^avg10=/) {sub(/^avg10=/, "", $i); print $i}}' /proc/pressure/io)
@@ -584,12 +587,15 @@ for ((boot_index=0; boot_index>=-20; boot_index--)); do
 
     reboot_reason=""
     reboot_pattern=""
-    if grep -Eqi 'kernel panic|panic - not syncing' <<<"$previous_boot_log"; then
+    if grep -Eqi 'watchdog-mux.*client .*watchdog (is about to expire|expired)|watchdog-mux.*active connections' <<<"$previous_boot_log"; then
+        reboot_reason="Proxmox HA watchdog client expired; node self-fencing/reset detected"
+        reboot_pattern='watchdog-mux.*client .*watchdog (is about to expire|expired)|watchdog-mux.*active connections|watchdog.*did not stop'
+    elif grep -Eqi 'kernel panic|panic - not syncing' <<<"$previous_boot_log"; then
         reboot_reason="Kernel panic detected before reboot"
         reboot_pattern='kernel panic|panic - not syncing'
-    elif grep -Eqi 'watchdog.*(timeout|reset|lockup)|soft lockup|hard lockup' <<<"$previous_boot_log"; then
+    elif grep -Eqi 'watchdog.*(timeout|reset|lockup|expired|did not stop)|soft lockup|hard lockup' <<<"$previous_boot_log"; then
         reboot_reason="Watchdog timeout or kernel lockup detected before reboot"
-        reboot_pattern='watchdog.*(timeout|reset|lockup)|soft lockup|hard lockup'
+        reboot_pattern='watchdog.*(timeout|reset|lockup|expired|did not stop)|soft lockup|hard lockup'
     elif grep -Eqi 'out of memory|oom-killer|killed process' <<<"$previous_boot_log"; then
         reboot_reason="Out-of-memory event detected before reboot"
         reboot_pattern='out of memory|oom-killer|killed process'
@@ -664,7 +670,8 @@ done <<'EOF'
 OOM / killed processes|out of memory|oom-killer|killed process
 i915 GPU memory purge|purging GPU memory
 Kernel stalls / lockups|blocked for more than|soft lockup|hard lockup
-Watchdog / kernel panic|watchdog.*(reset|timeout)|kernel panic
+Proxmox HA watchdog expiry|watchdog-mux.*client .*watchdog (is about to expire|expired)|watchdog-mux.*active connections
+Watchdog / kernel panic|watchdog.*(reset|timeout|did not stop)|kernel panic
 Storage / NFS I/O errors|blk_update_request|Buffer I/O error|end_request: I/O error|nvme.*(I/O error|timeout|reset)|EXT4-fs error|ZFS.*(FAULTED|SUSPENDED)|nfs: server .* not responding
 Corosync link / token loss|corosync.*(link: .* is down|Token has not been received|processor failed|quorum.*lost|lost.*quorum)
 EOF
