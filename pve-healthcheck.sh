@@ -89,8 +89,8 @@ show_menu() {
         printf '  %s[ 2]%s  %-25s %s[ 8]%s  %s\n' "$C_CYAN" "$C_RESET" 'Host information' "$C_CYAN" "$C_RESET" 'ZFS pools'
         printf '  %s[ 3]%s  %-25s %s[ 9]%s  %s\n' "$C_CYAN" "$C_RESET" 'Failed systemd services' "$C_CYAN" "$C_RESET" 'Proxmox storages'
         printf '  %s[ 4]%s  %-25s %s[10]%s  %s\n' "$C_CYAN" "$C_RESET" 'Cluster and quorum' "$C_CYAN" "$C_RESET" 'iSCSI'
-        printf '  %s[ 5]%s  %-25s %s[11]%s  %s\n' "$C_CYAN" "$C_RESET" 'High availability' "$C_YELLOW" "$C_RESET" 'Backup details and error logs'
-        printf '  %s[ 6]%s  %-25s %s[12]%s  %s\n' "$C_CYAN" "$C_RESET" 'Memory and swap' "$C_YELLOW" "$C_RESET" 'Reboots and possible causes'
+        printf '  %s[ 5]%s  %-25s %s[11]%s  %s\n' "$C_CYAN" "$C_RESET" 'High availability' "$C_CYAN" "$C_RESET" 'Backup details and error logs'
+        printf '  %s[ 6]%s  %-25s %s[12]%s  %s\n' "$C_CYAN" "$C_RESET" 'Memory and swap' "$C_CYAN" "$C_RESET" 'Reboots and possible causes'
         printf '  %s[ 7]%s  %-25s %s[13]%s  %s\n\n' "$C_CYAN" "$C_RESET" 'ZFS ARC' "$C_CYAN" "$C_RESET" 'Recent critical log patterns'
 
         printf '  %s[ 0]%s  Exit\n\n' "$C_DIM" "$C_RESET"

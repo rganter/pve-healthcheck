@@ -4,6 +4,7 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 
 ## Unreleased
 
+- einheitliche neutrale Farbe für alle Einträge im Menü der Einzelprüfungen
 - saubere Host-Shutdowns werden nur noch aus PID-1- und Kernelmeldungen abgeleitet;
   `shutdown.target` aus Benutzer-Systemd-Instanzen erzeugt keinen Fehlbefund mehr
 - Erkennung eines beschädigten beziehungsweise unsauber geschlossenen Journals im Folgeboot
