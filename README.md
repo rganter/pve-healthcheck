@@ -100,11 +100,16 @@ Reboots korreliert, wenn der Task höchstens 15 Minuten vor dem neuen Boot began
 Das weist auf einen zeitlichen Zusammenhang hin, behauptet aber nicht automatisch
 eine eindeutige Ursache.
 
-Die Ursachenanalyse liest nur die letzten 15 Minuten des vorherigen Boots. Hinweise
-auf ein unsauber geschlossenes Journal werden in den ersten fünf Minuten des
-Folgeboots gesucht. Dadurch bleiben auch lange beziehungsweise große Journale schnell.
-
 Der Zeitraum wird auch hier mit `--hours` festgelegt. Standard sind 24 Stunden.
+
+## Reboot-Prüfung
+
+Die Ursachenanalyse liest die letzten 15 Minuten des vorherigen Boots. Hinweise
+auf ein unsauber geschlossenes Journal werden in den ersten fünf Minuten des
+Folgeboots gesucht. Falls das vorherige Journal in diesem Zeitfenster keine
+Einträge enthält, verwendet das Skript ersatzweise dessen letzte 500 Meldungen.
+Dadurch bleiben auch lange beziehungsweise große Journale schnell, ohne längere
+Ausfallzeiten aus der Analyse auszuschließen.
 
 ## Ausgaben richtig interpretieren
 
@@ -113,10 +118,10 @@ Der Zeitraum wird auch hier mit `--hours` festgelegt. Standard sind 24 Stunden.
 Eine Meldung wie
 
 ```text
-[WARN] Corosync link / token loss: 6 matching message(s) in the last 24 hour(s)
+[WARN] Corosync link / token loss: N matching message(s) in the last 24 hour(s)
 ```
 
-bedeutet sechs passende Journalzeilen, nicht zwingend sechs Cluster-Ausfälle. Ein
+bedeutet N passende Journalzeilen, nicht zwingend N Cluster-Ausfälle. Ein
 einziger Linkverlust erzeugt üblicherweise mehrere Meldungen, beispielsweise
 `link ... is down`, `Token has not been received` und `A processor failed`.
 Zeitstempel und Belegzeilen müssen deshalb gemeinsam betrachtet werden.

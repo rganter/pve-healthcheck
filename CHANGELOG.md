@@ -16,7 +16,6 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 - zeitliche Korrelation fehlgeschlagener `vzdump`-Tasks mit lokalen Reboots
 - Anzeige aktueller vollständiger Linux-I/O-Pressure bei der Storage-Prüfung
 - präzisere Storage-/NFS-Fehlermuster ohne generische Sensor-`I/O error`-Treffer
-- Unclean-Journal-Suche über den gesamten Folgeboot statt nur dessen erste Meldungen
 - Corosync-Startmeldungen werden von echten Link-, Token- und Quorumverlusten getrennt
 - Erkennung von Reboots im gewählten Prüfzeitraum
 - Ursachenanalyse anhand des vorherigen Boot-Journals mit Belegzeilen
