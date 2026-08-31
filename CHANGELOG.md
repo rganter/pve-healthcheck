@@ -4,6 +4,8 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 
 ## Unreleased
 
+- Boot-Startabfrage beendet den JSON-Journalstrom nach dem ersten Eintrag, statt
+  jeden Boot vollständig zu dekodieren
 - README um Interpretationshilfen für Trefferzahlen, lokale Node-Sicht,
   Backup-Reboot-Korrelation, Retention, I/O-Pressure und Prüfzeitraum ergänzt
 - schnellere Reboot-Analyse durch begrenzte Journalfenster vor und nach dem Boot

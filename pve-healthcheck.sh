@@ -494,7 +494,7 @@ reboot_count=0
 
 boot_start_epoch() {
     local boot_index=$1 first_entry
-    first_entry=$(journalctl -b "$boot_index" -o json --no-pager 2>/dev/null | sed -n '1p' || true)
+    first_entry=$(journalctl -b "$boot_index" -o json --no-pager 2>/dev/null | sed -n '1{p;q;}' || true)
     [[ -n $first_entry ]] || return 1
     perl -MJSON::PP -e '
         my $entry = eval { decode_json(<STDIN>) };
