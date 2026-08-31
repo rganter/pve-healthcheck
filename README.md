@@ -163,6 +163,16 @@ Prozessen im Zustand `D`, hohem I/O-Wait oder Watchdog-Resets weisen auf einen
 systemweiten Storage-/NFS-Stall hin. PSI identifiziert nicht von selbst das
 verursachende Gerät oder den Server.
 
+### RAM und Swap
+
+Die Speicherbewertung kombiniert den Anteil von `MemAvailable`, Linux Memory-PSI
+und eine kurze Messung der aktuellen Swap-I/O-Rate. Weniger als 20 Prozent
+verfügbarer RAM erzeugen allein noch keine Warnung, solange weder Memory-Pressure
+noch mindestens 1 MiB/s Swap-I/O erkennbar ist. Weniger als 10 Prozent bleiben
+warnrelevant; weniger als 5 Prozent oder hohe vollständige Memory-Pressure werden
+kritisch bewertet. Eine hohe Swap-Belegung ohne aktuelle Swap-I/O kann von einem
+früheren Lastzustand stammen und wird deshalb nur als Hinweis ausgegeben.
+
 ### Zeitraum beachten
 
 Journalwarnungen beziehen sich auf `--hours`, Live-Prüfungen wie Quorum,

@@ -238,12 +238,45 @@ if should_run memory; then
 section "Memory and swap"
 free -h
 avail_pct=$(awk -v a="$mem_available_kib" -v t="$mem_total_kib" 'BEGIN {printf "%.0f", (a/t)*100}')
-if ((avail_pct < 10)); then
-    crit "Only ${avail_pct}% of RAM is available"
+memory_some_avg10=""
+memory_full_avg10=""
+if [[ -r /proc/pressure/memory ]]; then
+    memory_some_avg10=$(awk '/^some / {for (i=1; i<=NF; i++) if ($i ~ /^avg10=/) {sub(/^avg10=/, "", $i); print $i}}' /proc/pressure/memory)
+    memory_full_avg10=$(awk '/^full / {for (i=1; i<=NF; i++) if ($i ~ /^avg10=/) {sub(/^avg10=/, "", $i); print $i}}' /proc/pressure/memory)
+fi
+
+swap_in_kib=0
+swap_out_kib=0
+if have vmstat; then
+    swap_sample=$(vmstat 1 2 2>/dev/null | tail -n 1 || true)
+    read -r swap_in_kib swap_out_kib < <(awk '{print $7, $8}' <<<"$swap_sample")
+    [[ $swap_in_kib =~ ^[0-9]+$ ]] || swap_in_kib=0
+    [[ $swap_out_kib =~ ^[0-9]+$ ]] || swap_out_kib=0
+fi
+swap_active=0
+((swap_in_kib + swap_out_kib >= 1024)) && swap_active=1
+
+memory_pressure_elevated=0
+memory_pressure_critical=0
+if [[ -n $memory_some_avg10 ]] && awk -v value="$memory_some_avg10" 'BEGIN {exit !(value >= 1)}'; then
+    memory_pressure_elevated=1
+fi
+if [[ -n $memory_full_avg10 ]] && awk -v value="$memory_full_avg10" 'BEGIN {exit !(value >= 1)}'; then
+    memory_pressure_elevated=1
+fi
+if [[ -n $memory_full_avg10 ]] && awk -v value="$memory_full_avg10" 'BEGIN {exit !(value >= 10)}'; then
+    memory_pressure_critical=1
+fi
+
+memory_context="PSI some=${memory_some_avg10:-unknown}% full=${memory_full_avg10:-unknown}%, swap-in=${swap_in_kib} KiB/s swap-out=${swap_out_kib} KiB/s"
+if ((avail_pct < 5 || memory_pressure_critical)); then
+    crit "Memory pressure is critical: ${avail_pct}% RAM available; $memory_context"
+elif ((avail_pct < 10 || swap_active || (avail_pct < 20 && memory_pressure_elevated))); then
+    warn "Memory pressure requires attention: ${avail_pct}% RAM available; $memory_context"
 elif ((avail_pct < 20)); then
-    warn "Only ${avail_pct}% of RAM is available"
+    info "RAM headroom is reduced (${avail_pct}% available), but no current memory pressure was detected; $memory_context"
 else
-    ok "${avail_pct}% of RAM is available"
+    ok "${avail_pct}% of RAM is available; no current memory pressure detected"
 fi
 
 swap_total_kib=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
@@ -252,7 +285,13 @@ if ((swap_total_kib == 0)); then
     warn "No swap is configured"
 else
     swap_used_pct=$(( (swap_total_kib - swap_free_kib) * 100 / swap_total_kib ))
-    ((swap_used_pct < 75)) && ok "Swap usage is ${swap_used_pct}%" || warn "Swap usage is ${swap_used_pct}%"
+    if ((swap_used_pct >= 75 && swap_active)); then
+        warn "Swap usage is ${swap_used_pct}% with active swap I/O"
+    elif ((swap_used_pct >= 75)); then
+        info "Swap usage is ${swap_used_pct}%, but no current swap I/O was detected"
+    else
+        ok "Swap usage is ${swap_used_pct}%"
+    fi
 fi
 fi
 

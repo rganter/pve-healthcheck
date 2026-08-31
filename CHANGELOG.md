@@ -4,6 +4,8 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 
 ## Unreleased
 
+- kombinierte RAM-Bewertung aus verfügbarem Speicher, Memory-PSI und aktueller
+  Swap-I/O statt einer alleinigen Warnschwelle von 20 Prozent
 - Boot-Startabfrage beendet den JSON-Journalstrom nach dem ersten Eintrag, statt
   jeden Boot vollständig zu dekodieren
 - README um Interpretationshilfen für Trefferzahlen, lokale Node-Sicht,
