@@ -21,10 +21,6 @@ Ein rein lesendes Healthcheck-Skript für Proxmox-VE-Hosts. Es prüft typische F
 - zeitliche Korrelation fehlgeschlagener `vzdump`-Tasks mit nachfolgenden Reboots
 - OOM-, i915-, Watchdog-, Kernel-Stall-, I/O- und Corosync-Meldungen
 
-Corosync-Meldungen aus der normalen Startphase wie `host has no active links`
-werden nicht als Ausfall gewertet. Eine Warnung erfordert einen tatsächlichen
-Link-Down-, Token-Timeout- oder Quorumverlust-Hinweis.
-
 ## Installation
 
 ```bash
@@ -109,6 +105,73 @@ auf ein unsauber geschlossenes Journal werden in den ersten fünf Minuten des
 Folgeboots gesucht. Dadurch bleiben auch lange beziehungsweise große Journale schnell.
 
 Der Zeitraum wird auch hier mit `--hours` festgelegt. Standard sind 24 Stunden.
+
+## Ausgaben richtig interpretieren
+
+### Treffer sind nicht automatisch Vorfälle
+
+Eine Meldung wie
+
+```text
+[WARN] Corosync link / token loss: 6 matching message(s) in the last 24 hour(s)
+```
+
+bedeutet sechs passende Journalzeilen, nicht zwingend sechs Cluster-Ausfälle. Ein
+einziger Linkverlust erzeugt üblicherweise mehrere Meldungen, beispielsweise
+`link ... is down`, `Token has not been received` und `A processor failed`.
+Zeitstempel und Belegzeilen müssen deshalb gemeinsam betrachtet werden.
+
+### Jeder Node zeigt seine lokale Sicht
+
+Der Healthcheck liest ausschließlich lokale Daten. Ein abgestürzter Node kann
+seinen eigenen Verbindungsverlust häufig nicht mehr protokollieren. Ein anderer
+Cluster-Node sieht dagegen den tatsächlichen Corosync-Link- oder Tokenverlust.
+Beide Ausgaben ergänzen sich:
+
+- der betroffene Node zeigt beispielsweise ein abruptes Journalende, einen
+  unsauberen Folgeboot und zeitlich passende fehlgeschlagene Tasks;
+- ein weiterlaufender Peer zeigt, wann der betroffene Node aus der
+  Cluster-Mitgliedschaft verschwand.
+
+Normale Corosync-Startmeldungen wie `host has no active links` werden nicht als
+Ausfall gewertet. Warnrelevant sind tatsächliche Link-Down-, Token-Timeout- oder
+Quorumverlust-Hinweise.
+
+### Reboot- und Backup-Korrelation
+
+`Temporal correlation` bedeutet, dass ein fehlgeschlagener `vzdump`-Task
+höchstens 15 Minuten vor dem neuen Boot begann. Das ist ein wichtiger Hinweis,
+aber allein noch kein Beweis, dass der Backup-Job die technische Grundursache war.
+Der Backup-Datenstrom kann beispielsweise einen vorhandenen Storage-, NFS-,
+Netzwerk-, Treiber- oder Hardwarefehler erst unter Last sichtbar machen.
+
+Ein `unclean journal` zusammen mit einer fehlenden PID-1-/Kernel-Shutdown-Sequenz
+spricht für Crash, Watchdog-Reset oder Stromverlust. `shutdown.target` aus einer
+Benutzer-Systemd-Instanz ist dagegen kein Host-Shutdown.
+
+### Backup-Anzahl und Retention
+
+Die Backup-Ansicht eines Gasts zeigt nur noch vorhandene, abgeschlossene Archive.
+Ein Zeitplan mit vier Läufen pro Tag und `keep-daily=14` behält langfristig nur
+einen Stand pro Kalendertag. Fehlgeschlagene Läufe erzeugen kein vollständiges
+Archiv. Für die tatsächliche Zahl der Ausführungen ist deshalb die Task-Historie
+maßgeblich, nicht allein die Liste der Backup-Dateien.
+
+### I/O-Pressure
+
+Die Storage-Prüfung liest Linux PSI aus `/proc/pressure/io`. `full` bedeutet,
+dass zeitweise alle nicht-idle Tasks gleichzeitig auf I/O warten. Ein kurzfristig
+erhöhter Wert ist ein Lastindikator; dauerhaft hohe Werte zusammen mit vielen
+Prozessen im Zustand `D`, hohem I/O-Wait oder Watchdog-Resets weisen auf einen
+systemweiten Storage-/NFS-Stall hin. PSI identifiziert nicht von selbst das
+verursachende Gerät oder den Server.
+
+### Zeitraum beachten
+
+Journalwarnungen beziehen sich auf `--hours`, Live-Prüfungen wie Quorum,
+Storage-Status und I/O-Pressure dagegen auf den aktuellen Zustand. Nach einer
+Korrektur kann deshalb `--hours 1` eine übersichtlichere Nachkontrolle liefern,
+während der 24-Stunden-Standard weiterhin ältere Vorfälle enthält.
 
 ## Sicherheit
 

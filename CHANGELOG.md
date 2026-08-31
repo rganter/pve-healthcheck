@@ -4,6 +4,8 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 
 ## Unreleased
 
+- README um Interpretationshilfen für Trefferzahlen, lokale Node-Sicht,
+  Backup-Reboot-Korrelation, Retention, I/O-Pressure und Prüfzeitraum ergänzt
 - schnellere Reboot-Analyse durch begrenzte Journalfenster vor und nach dem Boot
 - einheitliche neutrale Farbe für alle Einträge im Menü der Einzelprüfungen
 - saubere Host-Shutdowns werden nur noch aus PID-1- und Kernelmeldungen abgeleitet;
