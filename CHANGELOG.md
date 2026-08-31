@@ -4,6 +4,9 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 
 ## Unreleased
 
+- optionaler systemd-Diagnosewächter, der bei einer HA-Watchdog-Vorwarnung
+  sofort Prozess-, Kernel-, Pressure-, Cluster-, Netzwerk- und Storagezustand
+  vor einem möglichen Reset sichert
 - getrennte Bewertung erholter HA-Loop-Verzögerungen und tatsächlich
   abgelaufener Watchdog-Clients mit ausgelöstem Self-Fencing
 - Erkennung abgelaufener `watchdog-mux`-Clients als Proxmox-HA-Self-Fencing

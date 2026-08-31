@@ -1,0 +1,16 @@
+[Unit]
+Description=Capture diagnostics before a Proxmox HA watchdog reset
+After=systemd-journald.service watchdog-mux.service
+Requires=systemd-journald.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/pve-watchdog-diagnose --watch
+Restart=always
+RestartSec=2
+User=root
+UMask=0077
+OOMScoreAdjust=-500
+
+[Install]
+WantedBy=multi-user.target

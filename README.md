@@ -77,6 +77,52 @@ Hilfe anzeigen:
 ./pve-healthcheck.sh --help
 ```
 
+## Watchdog-Diagnosewächter
+
+`pve-watchdog-diagnose.sh` kann dauerhaft auf die Vorwarnung eines ablaufenden
+`watchdog-mux`-Clients warten. Sobald `watchdog is about to expire` erscheint,
+sichert er noch vor einem möglichen Reset unter anderem Prozessstatus,
+Kernel-Wartepunkt, aktuellen Systemaufruf und Kernel-Stack des betroffenen
+Clients sowie Pressure-, HA-, Cluster-, Netzwerk-, Storage- und Journaldaten.
+Der Wächter arbeitet rein beobachtend und aktualisiert oder deaktiviert den
+Watchdog nicht.
+
+Installation als systemd-Dienst:
+
+```bash
+install -m 0755 pve-watchdog-diagnose.sh /usr/local/sbin/pve-watchdog-diagnose
+install -m 0644 pve-watchdog-diagnose.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now pve-watchdog-diagnose.service
+```
+
+Status und Protokoll:
+
+```bash
+systemctl status pve-watchdog-diagnose.service
+journalctl -u pve-watchdog-diagnose.service
+```
+
+Jeder Vorfall wird mit restriktiven Rechten in einem eigenen Verzeichnis unter
+`/var/log/pve-watchdog-diagnostics/` gespeichert. Die Dateien können
+Prozessargumente und interne Netzwerkdetails enthalten und sollten deshalb nur
+geschützt weitergegeben sowie nach der Analyse manuell gelöscht werden. Ein
+manueller Funktionstest ohne Watchdog-Ereignis ist mit der PID des laufenden CRM
+möglich:
+
+```bash
+/usr/local/sbin/pve-watchdog-diagnose --capture "$(pidof pve-ha-crm)" "manual test"
+```
+
+Deinstallation:
+
+```bash
+systemctl disable --now pve-watchdog-diagnose.service
+rm /etc/systemd/system/pve-watchdog-diagnose.service
+rm /usr/local/sbin/pve-watchdog-diagnose
+systemctl daemon-reload
+```
+
 ## Exit-Codes
 
 | Code | Bedeutung |
