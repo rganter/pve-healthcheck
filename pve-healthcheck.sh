@@ -9,6 +9,7 @@ USE_COLOR=1
 WARNINGS=0
 CRITICALS=0
 CHECK_MODE=""
+backup_rows=""
 
 CHECKS=(host services cluster ha memory arc zfs storage iscsi backups reboots logs)
 
@@ -306,6 +307,17 @@ if have pvesm; then
         [[ $status == active ]] || crit "Storage $name is $status"
     done < <(printf '%s\n' "$storage_output" | awk 'NR>1 {print $1, $3}')
 fi
+if [[ -r /proc/pressure/io ]]; then
+    io_full_avg10=$(awk '/^full / {for (i=1; i<=NF; i++) if ($i ~ /^avg10=/) {sub(/^avg10=/, "", $i); print $i}}' /proc/pressure/io)
+    io_full_avg60=$(awk '/^full / {for (i=1; i<=NF; i++) if ($i ~ /^avg60=/) {sub(/^avg60=/, "", $i); print $i}}' /proc/pressure/io)
+    if [[ -n $io_full_avg10 ]] && awk -v value="$io_full_avg10" 'BEGIN {exit !(value >= 10)}'; then
+        warn "High full I/O pressure: avg10=${io_full_avg10}% avg60=${io_full_avg60:-unknown}%"
+    elif [[ -n $io_full_avg10 ]] && awk -v value="$io_full_avg10" 'BEGIN {exit !(value >= 1)}'; then
+        info "Elevated full I/O pressure: avg10=${io_full_avg10}% avg60=${io_full_avg60:-unknown}%"
+    else
+        ok "No current full I/O pressure (avg10=${io_full_avg10:-unknown}%)"
+    fi
+fi
 fi
 
 if should_run iscsi; then
@@ -344,7 +356,6 @@ fi
 if should_run backups; then
 section "Backups"
 backup_since_epoch=$(date -d "${LOOKBACK_HOURS} hours ago" +%s)
-backup_rows=""
 backup_error=""
 backup_page_limit=500
 
@@ -501,6 +512,15 @@ for ((boot_index=0; boot_index>=-20; boot_index--)); do
     previous_boot_index=$((boot_index - 1))
     reboot_time=$(date -d "@$current_boot_start" --iso-8601=seconds 2>/dev/null || printf '%s' "$current_boot_start")
     previous_boot_log=$(journalctl -b "$previous_boot_index" -n 500 --no-pager -o short-iso 2>/dev/null || true)
+    previous_host_log=$(
+        {
+            journalctl -b "$previous_boot_index" -n 500 _PID=1 --no-pager -o short-iso 2>/dev/null || true
+            journalctl -b "$previous_boot_index" -k -n 500 --no-pager -o short-iso 2>/dev/null || true
+        }
+    )
+    current_boot_start_log=$(journalctl -b "$boot_index" --no-pager -o short-iso 2>/dev/null | sed -n '1,300p' || true)
+    unclean_journal=0
+    grep -Eqi 'journal.*(corrupt|uncleanly shut down)|corrupted or uncleanly shut down' <<<"$current_boot_start_log" && unclean_journal=1
 
     printf '\nReboot at: %s\n' "$reboot_time"
     if [[ -z $previous_boot_log ]]; then
@@ -522,12 +542,12 @@ for ((boot_index=0; boot_index>=-20; boot_index--)); do
     elif grep -Eqi 'critical temperature|temperature above threshold|thermal.*shutdown' <<<"$previous_boot_log"; then
         reboot_reason="Critical temperature or thermal shutdown detected before reboot"
         reboot_pattern='critical temperature|temperature above threshold|thermal.*shutdown'
-    elif grep -Eqi 'I/O error|blk_update_request|Buffer I/O error|EXT4-fs error|ZFS.*(FAULTED|SUSPENDED)' <<<"$previous_boot_log"; then
+    elif grep -Eqi 'blk_update_request|Buffer I/O error|end_request: I/O error|nvme.*(I/O error|timeout|reset)|EXT4-fs error|ZFS.*(FAULTED|SUSPENDED)|nfs: server .* not responding' <<<"$previous_boot_log"; then
         reboot_reason="Storage or I/O errors detected before reboot"
-        reboot_pattern='I/O error|blk_update_request|Buffer I/O error|EXT4-fs error|ZFS.*(FAULTED|SUSPENDED)'
-    elif grep -Eqi 'systemd-shutdown|reboot: Restarting system|Reached target.*(Reboot|Shutdown)|Shutting down' <<<"$previous_boot_log"; then
+        reboot_pattern='blk_update_request|Buffer I/O error|end_request: I/O error|nvme.*(I/O error|timeout|reset)|EXT4-fs error|ZFS.*(FAULTED|SUSPENDED)|nfs: server .* not responding'
+    elif grep -Eqi 'systemd-shutdown|reboot: Restarting system|Reached target (reboot|power-off|shutdown)\.target|Shutting down|System Reboot|System Power Off' <<<"$previous_host_log"; then
         reboot_reason="Clean shutdown or planned reboot recorded"
-        reboot_pattern='systemd-shutdown|reboot: Restarting system|Reached target.*(Reboot|Shutdown)|Shutting down'
+        reboot_pattern='systemd-shutdown|reboot: Restarting system|Reached target (reboot|power-off|shutdown)\.target|Shutting down|System Reboot|System Power Off'
     fi
 
     if [[ $reboot_reason == "Clean shutdown or planned reboot recorded" ]]; then
@@ -535,15 +555,35 @@ for ((boot_index=0; boot_index>=-20; boot_index--)); do
     elif [[ -n $reboot_reason ]]; then
         warn "$reboot_reason"
     else
-        warn "No orderly shutdown or clear cause found; possible crash, reset, or power loss"
+        if ((unclean_journal)); then
+            warn "No orderly shutdown found; the next boot reports an unclean journal (possible crash, watchdog reset, or power loss)"
+        else
+            warn "No orderly shutdown or clear cause found; possible crash, reset, or power loss"
+        fi
     fi
 
     if [[ -n $reboot_pattern ]]; then
         info "Relevant journal entries from the previous boot:"
-        grep -Ei "$reboot_pattern" <<<"$previous_boot_log" | tail -n 5 | sed 's/^/  /'
+        if [[ $reboot_reason == "Clean shutdown or planned reboot recorded" ]]; then
+            grep -Ei "$reboot_pattern" <<<"$previous_host_log" | tail -n 5 | sed 's/^/  /'
+        else
+            grep -Ei "$reboot_pattern" <<<"$previous_boot_log" | tail -n 5 | sed 's/^/  /'
+        fi
     else
         info "Last journal entries from the previous boot:"
         tail -n 5 <<<"$previous_boot_log" | sed 's/^/  /'
+    fi
+
+    if [[ -n ${backup_rows:-} ]]; then
+        local_node=$(hostname -s 2>/dev/null || hostname)
+        while IFS='|' read -r status node guest user starttime upid; do
+            [[ -n $upid && $status != OK && $node == "$local_node" && $starttime =~ ^[0-9]+$ ]] || continue
+            backup_reboot_delta=$((current_boot_start - starttime))
+            if ((backup_reboot_delta >= 0 && backup_reboot_delta <= 900)); then
+                backup_started=$(date -d "@$starttime" --iso-8601=seconds 2>/dev/null || printf '%s' "$starttime")
+                info "Temporal correlation: failed vzdump for guest ${guest:--} started at $backup_started (${backup_reboot_delta}s before this boot)"
+            fi
+        done <<<"$backup_rows"
     fi
 done
 
@@ -571,7 +611,7 @@ OOM / killed processes|out of memory|oom-killer|killed process
 i915 GPU memory purge|purging GPU memory
 Kernel stalls / lockups|blocked for more than|soft lockup|hard lockup
 Watchdog / kernel panic|watchdog.*(reset|timeout)|kernel panic
-I/O errors|I/O error
+Storage / NFS I/O errors|blk_update_request|Buffer I/O error|end_request: I/O error|nvme.*(I/O error|timeout|reset)|EXT4-fs error|ZFS.*(FAULTED|SUSPENDED)|nfs: server .* not responding
 Corosync link loss|corosync.*no active links
 EOF
 if ((log_findings == 0)); then

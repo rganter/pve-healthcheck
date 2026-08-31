@@ -4,6 +4,12 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 
 ## Unreleased
 
+- saubere Host-Shutdowns werden nur noch aus PID-1- und Kernelmeldungen abgeleitet;
+  `shutdown.target` aus Benutzer-Systemd-Instanzen erzeugt keinen Fehlbefund mehr
+- Erkennung eines beschädigten beziehungsweise unsauber geschlossenen Journals im Folgeboot
+- zeitliche Korrelation fehlgeschlagener `vzdump`-Tasks mit lokalen Reboots
+- Anzeige aktueller vollständiger Linux-I/O-Pressure bei der Storage-Prüfung
+- präzisere Storage-/NFS-Fehlermuster ohne generische Sensor-`I/O error`-Treffer
 - Erkennung von Reboots im gewählten Prüfzeitraum
 - Ursachenanalyse anhand des vorherigen Boot-Journals mit Belegzeilen
 - übersichtlicheres, farbiges Terminal-Menü mit gruppierten Prüfungen

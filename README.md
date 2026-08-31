@@ -13,9 +13,12 @@ Ein rein lesendes Healthcheck-Skript für Proxmox-VE-Hosts. Es prüft typische F
 - ZFS-ARC-Größe und explizites ARC-Limit
 - Zustand aller importierten ZFS-Pools
 - Status aller Proxmox-Storages
+- aktuelle Linux-I/O-Pressure als Hinweis auf systemweite Storage-Stalls
 - aktive und veraltete iSCSI-Einträge
 - abgeschlossene und fehlgeschlagene `vzdump`-Backup-Tasks
-- Neustarts und mögliche Ursachen aus dem Journal des vorherigen Boots
+- Neustarts und mögliche Ursachen aus dem Journal des vorherigen Boots; saubere
+  Host-Shutdowns werden nur anhand von PID 1 beziehungsweise Kernelmeldungen erkannt
+- zeitliche Korrelation fehlgeschlagener `vzdump`-Tasks mit nachfolgenden Reboots
 - OOM-, i915-, Watchdog-, Kernel-Stall-, I/O- und Corosync-Meldungen
 
 ## Installation
@@ -91,6 +94,11 @@ abgeschlossenen `vzdump`-Tasks sowie die Zahl der erfolgreichen und
 fehlgeschlagenen Tasks. Der Menüpunkt **Backup details and error logs**
 beziehungsweise `--check backups` listet zusätzlich die einzelnen Tasks auf
 und gibt für fehlgeschlagene Backups das zugehörige Proxmox-Task-Log aus.
+
+Beim vollständigen Check werden fehlgeschlagene Backups außerdem mit lokalen
+Reboots korreliert, wenn der Task höchstens 15 Minuten vor dem neuen Boot begann.
+Das weist auf einen zeitlichen Zusammenhang hin, behauptet aber nicht automatisch
+eine eindeutige Ursache.
 
 Der Zeitraum wird auch hier mit `--hours` festgelegt. Standard sind 24 Stunden.
 
