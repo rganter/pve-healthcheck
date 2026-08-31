@@ -511,14 +511,28 @@ for ((boot_index=0; boot_index>=-20; boot_index--)); do
     reboot_count=$((reboot_count + 1))
     previous_boot_index=$((boot_index - 1))
     reboot_time=$(date -d "@$current_boot_start" --iso-8601=seconds 2>/dev/null || printf '%s' "$current_boot_start")
-    previous_boot_log=$(journalctl -b "$previous_boot_index" -n 500 --no-pager -o short-iso 2>/dev/null || true)
+    previous_window_start=$(date -d "@$((current_boot_start - 900))" --iso-8601=seconds 2>/dev/null || true)
+    current_boot_scan_end=$(date -d "@$((current_boot_start + 300))" --iso-8601=seconds 2>/dev/null || true)
+    previous_boot_log=$(journalctl -b "$previous_boot_index" --since "$previous_window_start" \
+        --no-pager -o short-iso 2>/dev/null || true)
     previous_host_log=$(
         {
-            journalctl -b "$previous_boot_index" -n 500 _PID=1 --no-pager -o short-iso 2>/dev/null || true
-            journalctl -b "$previous_boot_index" -k -n 500 --no-pager -o short-iso 2>/dev/null || true
+            journalctl -b "$previous_boot_index" --since "$previous_window_start" \
+                _PID=1 --no-pager -o short-iso 2>/dev/null || true
+            journalctl -b "$previous_boot_index" --since "$previous_window_start" \
+                -k --no-pager -o short-iso 2>/dev/null || true
         }
     )
-    current_boot_unclean_log=$(journalctl -b "$boot_index" --no-pager -o short-iso \
+    if [[ -z $previous_boot_log ]]; then
+        previous_boot_log=$(journalctl -b "$previous_boot_index" -n 500 --no-pager -o short-iso 2>/dev/null || true)
+        previous_host_log=$(
+            {
+                journalctl -b "$previous_boot_index" -n 500 _PID=1 --no-pager -o short-iso 2>/dev/null || true
+                journalctl -b "$previous_boot_index" -k -n 500 --no-pager -o short-iso 2>/dev/null || true
+            }
+        )
+    fi
+    current_boot_unclean_log=$(journalctl -b "$boot_index" --until "$current_boot_scan_end" --no-pager -o short-iso \
         --grep='corrupt|uncleanly shut down' 2>/dev/null || true)
     unclean_journal=0
     grep -Eqi 'journal.*(corrupt|uncleanly shut down)|corrupted or uncleanly shut down' <<<"$current_boot_unclean_log" && unclean_journal=1

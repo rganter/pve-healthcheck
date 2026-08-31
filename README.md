@@ -104,6 +104,10 @@ Reboots korreliert, wenn der Task höchstens 15 Minuten vor dem neuen Boot began
 Das weist auf einen zeitlichen Zusammenhang hin, behauptet aber nicht automatisch
 eine eindeutige Ursache.
 
+Die Ursachenanalyse liest nur die letzten 15 Minuten des vorherigen Boots. Hinweise
+auf ein unsauber geschlossenes Journal werden in den ersten fünf Minuten des
+Folgeboots gesucht. Dadurch bleiben auch lange beziehungsweise große Journale schnell.
+
 Der Zeitraum wird auch hier mit `--hours` festgelegt. Standard sind 24 Stunden.
 
 ## Sicherheit
