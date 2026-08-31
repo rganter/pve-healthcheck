@@ -21,6 +21,10 @@ Ein rein lesendes Healthcheck-Skript für Proxmox-VE-Hosts. Es prüft typische F
 - zeitliche Korrelation fehlgeschlagener `vzdump`-Tasks mit nachfolgenden Reboots
 - OOM-, i915-, Watchdog-, Kernel-Stall-, I/O- und Corosync-Meldungen
 
+Corosync-Meldungen aus der normalen Startphase wie `host has no active links`
+werden nicht als Ausfall gewertet. Eine Warnung erfordert einen tatsächlichen
+Link-Down-, Token-Timeout- oder Quorumverlust-Hinweis.
+
 ## Installation
 
 ```bash

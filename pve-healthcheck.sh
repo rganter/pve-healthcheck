@@ -518,9 +518,10 @@ for ((boot_index=0; boot_index>=-20; boot_index--)); do
             journalctl -b "$previous_boot_index" -k -n 500 --no-pager -o short-iso 2>/dev/null || true
         }
     )
-    current_boot_start_log=$(journalctl -b "$boot_index" --no-pager -o short-iso 2>/dev/null | sed -n '1,300p' || true)
+    current_boot_unclean_log=$(journalctl -b "$boot_index" --no-pager -o short-iso \
+        --grep='corrupt|uncleanly shut down' 2>/dev/null || true)
     unclean_journal=0
-    grep -Eqi 'journal.*(corrupt|uncleanly shut down)|corrupted or uncleanly shut down' <<<"$current_boot_start_log" && unclean_journal=1
+    grep -Eqi 'journal.*(corrupt|uncleanly shut down)|corrupted or uncleanly shut down' <<<"$current_boot_unclean_log" && unclean_journal=1
 
     printf '\nReboot at: %s\n' "$reboot_time"
     if [[ -z $previous_boot_log ]]; then
@@ -612,7 +613,7 @@ i915 GPU memory purge|purging GPU memory
 Kernel stalls / lockups|blocked for more than|soft lockup|hard lockup
 Watchdog / kernel panic|watchdog.*(reset|timeout)|kernel panic
 Storage / NFS I/O errors|blk_update_request|Buffer I/O error|end_request: I/O error|nvme.*(I/O error|timeout|reset)|EXT4-fs error|ZFS.*(FAULTED|SUSPENDED)|nfs: server .* not responding
-Corosync link loss|corosync.*no active links
+Corosync link / token loss|corosync.*(link: .* is down|Token has not been received|processor failed|quorum.*lost|lost.*quorum)
 EOF
 if ((log_findings == 0)); then
     ok "No matching critical patterns in the last ${LOOKBACK_HOURS} hour(s)"
