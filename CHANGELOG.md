@@ -4,6 +4,8 @@ Alle wesentlichen Änderungen an diesem Projekt werden hier dokumentiert.
 
 ## Unreleased
 
+- getrennte Bewertung erholter HA-Loop-Verzögerungen und tatsächlich
+  abgelaufener Watchdog-Clients mit ausgelöstem Self-Fencing
 - Erkennung abgelaufener `watchdog-mux`-Clients als Proxmox-HA-Self-Fencing
   einschließlich der relevanten Belegzeilen vor dem Reboot
 - robuste Auswertung der `pvesm status`-Tabelle auch bei vorangestellten

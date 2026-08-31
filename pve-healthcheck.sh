@@ -587,7 +587,7 @@ for ((boot_index=0; boot_index>=-20; boot_index--)); do
 
     reboot_reason=""
     reboot_pattern=""
-    if grep -Eqi 'watchdog-mux.*client .*watchdog (is about to expire|expired)|watchdog-mux.*active connections' <<<"$previous_boot_log"; then
+    if grep -Eqi 'watchdog-mux.*client .*watchdog expired - disable watchdog updates' <<<"$previous_boot_log"; then
         reboot_reason="Proxmox HA watchdog client expired; node self-fencing/reset detected"
         reboot_pattern='watchdog-mux.*client .*watchdog (is about to expire|expired)|watchdog-mux.*active connections|watchdog.*did not stop'
     elif grep -Eqi 'kernel panic|panic - not syncing' <<<"$previous_boot_log"; then
@@ -670,7 +670,8 @@ done <<'EOF'
 OOM / killed processes|out of memory|oom-killer|killed process
 i915 GPU memory purge|purging GPU memory
 Kernel stalls / lockups|blocked for more than|soft lockup|hard lockup
-Proxmox HA watchdog expiry|watchdog-mux.*client .*watchdog (is about to expire|expired)|watchdog-mux.*active connections
+Proxmox HA self-fencing|watchdog-mux.*client .*watchdog expired - disable watchdog updates
+Proxmox HA loop delay / watchdog near-expiry|pve-ha-(crm|lrm).*loop took too long|watchdog-mux.*client .*watchdog (is about to expire|was updated before expiring)
 Watchdog / kernel panic|watchdog.*(reset|timeout|did not stop)|kernel panic
 Storage / NFS I/O errors|blk_update_request|Buffer I/O error|end_request: I/O error|nvme.*(I/O error|timeout|reset)|EXT4-fs error|ZFS.*(FAULTED|SUSPENDED)|nfs: server .* not responding
 Corosync link / token loss|corosync.*(link: .* is down|Token has not been received|processor failed|quorum.*lost|lost.*quorum)

@@ -156,14 +156,17 @@ Benutzer-Systemd-Instanz ist dagegen kein Host-Shutdown.
 
 ### Proxmox-HA-Watchdog und Self-Fencing
 
-Meldungen von `watchdog-mux`, nach denen ein Client-Watchdog zunächst
-`about to expire` und anschließend `expired` ist, zeigen ein Proxmox-HA-
-Self-Fencing. `watchdog-mux` beendet dann absichtlich die Watchdog-Updates,
-damit der Node zur Vermeidung doppelt aktiver HA-Ressourcen zurückgesetzt wird.
-`watchdog0: watchdog did not stop!` bestätigt den noch aktiven Watchdog, ist aber
-nicht die technische Grundursache.
+`watchdog is about to expire` oder `loop took too long` zeigen zunächst einen
+kritisch verzögerten HA-Loop. Folgt `watchdog was updated before expiring`, hat
+sich der Client noch rechtzeitig erholt; es fand kein Self-Fencing statt.
 
-Die Warnung beweist somit den Resetmechanismus, nicht den Auslöser für den
+Erst `watchdog expired - disable watchdog updates` zeigt tatsächliches
+Proxmox-HA-Self-Fencing. `watchdog-mux` beendet dann absichtlich die
+Watchdog-Updates, damit der Node zur Vermeidung doppelt aktiver HA-Ressourcen
+zurückgesetzt wird. `watchdog0: watchdog did not stop!` bestätigt den noch
+aktiven Watchdog, ist aber nicht die technische Grundursache.
+
+Die Self-Fencing-Warnung beweist somit den Resetmechanismus, nicht den Auslöser für den
 ausgebliebenen Heartbeat. Zur Ursachenanalyse sind die unmittelbar vorherigen
 HA-, Corosync-, Netzwerk-, Storage- und Kernelmeldungen relevant. Ein zeitgleich
 laufender Backupjob kann einen vorhandenen Stall unter Last sichtbar machen.
